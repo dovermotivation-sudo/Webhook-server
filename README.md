@@ -8,8 +8,6 @@ FastAPI server that receives TradingView / Pine Script webhook alerts, forwards 
 |---|---|---|
 | GET | `/health` | Liveness check |
 | POST | `/webhook` | Accepts any JSON payload |
-| POST | `/webhook/signal` | Typed `SignalEnvelope` payload |
-
 ## Local Development
 
 ```bash
