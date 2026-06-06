@@ -17,29 +17,6 @@ pip install -r requirements.txt
 cp .env.example .env
 python main.py
 ```
-
-
-## Setup (Render.com)
-
-1. Create a free account at [Render.com](https://render.com).
-2. Click **New +** in the top right dashboard and select **Web Service**.
-3. Connect your GitHub account and select this repository.
-4. Use the following settings:
-   - **Name**: `tradingview-signal-relay` (or any custom name)
-   - **Language**: `Python`
-   - **Branch**: `main`
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Go to the **Environment** tab in your Render service settings and add the environment variables:
-   - `WEBHOOK_TOKEN`
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
-6. Select the **Free** instance type and click **Deploy Web Service**.
-
-Alternatively, you can deploy using the included `render.yaml` Blueprint file via the Render Blueprint dashboard.
-
-Note: Since Render's free tier instance type uses ephemeral disks, any signals logged to the local CSV file (`data/signals.csv`) will be cleared whenever the service restarts or redeploys. Telegram forwards will continue to function normally.
-
 ## Setup (Google Sheets)
 
 If you are hosting on a platform like Render with ephemeral disks, you can send your signal data directly to Google Sheets:
