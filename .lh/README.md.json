@@ -1,0 +1,26 @@
+{
+    "sourceFile": "README.md",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 2,
+            "patches": [
+                {
+                    "date": 1780311344618,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1780317868362,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -35,25 +35,8 @@\n ```bash\r\n python main.py\r\n ```\r\n \r\n-## Expose with Nginx\r\n-\r\n-Use nginx as a public reverse proxy in front of the FastAPI app.\r\n-\r\n-1. Start the app on the local machine:\r\n-\r\n-```bash\r\n-HOST=127.0.0.1 PORT=8000 python main.py\r\n-```\r\n-\r\n-2. Copy [nginx/sand.conf](nginx/sand.conf) to your nginx site config directory.\r\n-3. Replace `server_name _;` with your public domain name.\r\n-4. Reload nginx after testing the config with `nginx -t`.\r\n-5. Open firewall ports 80 and 443 on the server, then add TLS with certbot or your preferred certificate flow.\r\n-\r\n-The nginx config forwards `/health`, `/docs`, and the webhook endpoints to the local FastAPI server.\r\n-\r\n ## Endpoints\r\n \r\n - `GET /health`\r\n - `POST /webhook/pinescript`\r\n"
+                },
+                {
+                    "date": 1780318760838,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -35,8 +35,40 @@\n ```bash\r\n python main.py\r\n ```\r\n \r\n+## Cloudflare Tunnel\r\n+\r\n+To expose the local webhook server to the internet for TradingView, run the app on `127.0.0.1:8000` and forward it with Cloudflare Tunnel.\r\n+\r\n+Install `cloudflared` on Windows if needed:\r\n+\r\n+```powershell\r\n+winget install --id Cloudflare.cloudflared -e\r\n+```\r\n+\r\n+Start the local app:\r\n+\r\n+```powershell\r\n+e:\\Codes\\Sand\\.venv\\Scripts\\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000\r\n+```\r\n+\r\n+Then open the tunnel:\r\n+\r\n+```powershell\r\n+& 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe' tunnel --url http://127.0.0.1:8000 --no-autoupdate\r\n+```\r\n+\r\n+Cloudflare will print a public `trycloudflare.com` URL. Point TradingView webhooks at:\r\n+\r\n+```text\r\n+https://<your-tunnel-hostname>/webhook/pinescript\r\n+```\r\n+\r\n+If `WEBHOOK_TOKEN` is set, include the same token in your TradingView payload.\r\n+\r\n+For convenience, you can also use the helper script in `scripts/start-cloudflare-tunnel.ps1`.\r\n+\r\n ## Endpoints\r\n \r\n - `GET /health`\r\n - `POST /webhook/pinescript`\r\n"
+                }
+            ],
+            "date": 1780311344618,
+            "name": "Commit-0",
+            "content": "# TradingView Signal Relay\r\n\r\nSmall FastAPI server for TradingView or Pine Script webhook alerts. It accepts a JSON signal, forwards a summary to Telegram, and appends the full payload to a CSV file.\r\n\r\n## What it does\r\n\r\n- Accepts webhook POSTs from Pine Script or TradingView alerts.\r\n- Sends a formatted Telegram message when Telegram is configured.\r\n- Writes every signal to `data/signals.csv` by default.\r\n- Exposes a health endpoint for simple uptime checks.\r\n\r\n## Setup\r\n\r\n1. Install Python dependencies.\r\n2. Set environment variables.\r\n3. Start the server with Uvicorn.\r\n\r\nExample environment variables:\r\n\r\n```bash\r\nWEBHOOK_TOKEN=your-shared-secret\r\nTELEGRAM_BOT_TOKEN=123456:ABCDEF\r\nTELEGRAM_CHAT_ID=123456789\r\nPORT=8000\r\n```\r\n\r\n## Run\r\n\r\n```bash\r\nuvicorn main:app --host 0.0.0.0 --port 8000\r\n```\r\n\r\nOr run directly:\r\n\r\n```bash\r\npython main.py\r\n```\r\n\r\n## Expose with Nginx\r\n\r\nUse nginx as a public reverse proxy in front of the FastAPI app.\r\n\r\n1. Start the app on the local machine:\r\n\r\n```bash\r\nHOST=127.0.0.1 PORT=8000 python main.py\r\n```\r\n\r\n2. Copy [nginx/sand.conf](nginx/sand.conf) to your nginx site config directory.\r\n3. Replace `server_name _;` with your public domain name.\r\n4. Reload nginx after testing the config with `nginx -t`.\r\n5. Open firewall ports 80 and 443 on the server, then add TLS with certbot or your preferred certificate flow.\r\n\r\nThe nginx config forwards `/health`, `/docs`, and the webhook endpoints to the local FastAPI server.\r\n\r\n## Endpoints\r\n\r\n- `GET /health`\r\n- `POST /webhook/pinescript`\r\n- `POST /webhook/signal`\r\n\r\n## TradingView example payload\r\n\r\nUse this in your alert message body:\r\n\r\n```json\r\n{\r\n  \"token\": \"your-shared-secret\",\r\n  \"signal_type\": \"long_entry\",\r\n  \"symbol\": \"{{ticker}}\",\r\n  \"exchange\": \"{{exchange}}\",\r\n  \"timeframe\": \"{{interval}}\",\r\n  \"price\": \"{{close}}\",\r\n  \"side\": \"buy\",\r\n  \"strategy\": \"my_strategy\",\r\n  \"quantity\": 1,\r\n  \"message\": \"Long entry triggered\"\r\n}\r\n```\r\n\r\n## CSV output\r\n\r\nThe CSV file includes the main signal fields plus the full JSON payload so nothing is lost.\r\n\r\n## Notes\r\n\r\n- If `WEBHOOK_TOKEN` is set, the request must include the same token.\r\n- If Telegram variables are missing, signals are still logged to CSV.\r\n- The CSV file is created automatically on first write."
+        }
+    ]
+}

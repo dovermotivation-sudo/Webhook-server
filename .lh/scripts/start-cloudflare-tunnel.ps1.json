@@ -1,0 +1,22 @@
+{
+    "sourceFile": "scripts/start-cloudflare-tunnel.ps1",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1780318763541,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1780512161145,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,24 +1,33 @@\n-$ErrorActionPreference = 'Stop'\r\n+@echo off\r\n+setlocal\r\n \r\n-$root = Split-Path -Parent $PSScriptRoot\r\n-$cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue\r\n+:: Get project root (parent of the batch file's directory)\r\n+for %%I in (\"%~dp0..\") do set \"ROOT=%%~fI\"\r\n \r\n-if (-not $cloudflared) {\r\n-    $fallbackPath = 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe'\r\n-    if (Test-Path $fallbackPath) {\r\n-        $cloudflared = Get-Item $fallbackPath\r\n-    }\r\n-}\r\n+:: Locate cloudflared\r\n+where cloudflared >nul 2>&1\r\n+if %ERRORLEVEL%==0 (\r\n+    set \"CLOUDFLARED=cloudflared\"\r\n+) else (\r\n+    set \"CLOUDFLARED=C:\\Program Files (x86)\\cloudflared\\cloudflared.exe\"\r\n+    if not exist \"%CLOUDFLARED%\" (\r\n+        echo cloudflared was not found. Install it with:\r\n+        echo winget install --id Cloudflare.cloudflared -e\r\n\\ No newline at end of file\n+        exit /b 1\r\n+    )\r\n+)\r\n \r\n-if (-not $cloudflared) {\r\n-    throw 'cloudflared was not found. Install it with: winget install --id Cloudflare.cloudflared -e'\r\n-}\r\n+:: Set port (default 8000 if PORT env var not defined)\r\n+if defined PORT (\r\n+    set \"PORT_NUM=%PORT%\"\r\n+) else (\r\n+    set \"PORT_NUM=8000\"\r\n+)\r\n \r\n-$port = if ($env:PORT) { $env:PORT } else { 8000 }\r\n+pushd \"%ROOT%\"\r\n \r\n-Push-Location $root\r\n-try {\r\n-    & $cloudflared.Source tunnel --url \"http://127.0.0.1:$port\" --no-autoupdate\r\n-} finally {\r\n-    Pop-Location\r\n-}\n+\"%CLOUDFLARED%\" tunnel --url \"http://127.0.0.1:%PORT_NUM%\" --no-autoupdate\r\n+\r\n+popd\r\n+\r\n+endlocal\n\\ No newline at end of file\n"
+                }
+            ],
+            "date": 1780318763541,
+            "name": "Commit-0",
+            "content": "$ErrorActionPreference = 'Stop'\r\n\r\n$root = Split-Path -Parent $PSScriptRoot\r\n$cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue\r\n\r\nif (-not $cloudflared) {\r\n    $fallbackPath = 'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe'\r\n    if (Test-Path $fallbackPath) {\r\n        $cloudflared = Get-Item $fallbackPath\r\n    }\r\n}\r\n\r\nif (-not $cloudflared) {\r\n    throw 'cloudflared was not found. Install it with: winget install --id Cloudflare.cloudflared -e'\r\n}\r\n\r\n$port = if ($env:PORT) { $env:PORT } else { 8000 }\r\n\r\nPush-Location $root\r\ntry {\r\n    & $cloudflared.Source tunnel --url \"http://127.0.0.1:$port\" --no-autoupdate\r\n} finally {\r\n    Pop-Location\r\n}"
+        }
+    ]
+}

@@ -1,0 +1,175 @@
+# TradingView Signal Relay
+
+FastAPI server that receives TradingView / Pine Script webhook alerts, forwards them to Telegram, and logs them to a CSV file.
+
+## Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Liveness check |
+| POST | `/webhook` | Accepts any JSON payload |
+| POST | `/webhook/signal` | Typed `SignalEnvelope` payload |
+
+## Local Development
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python main.py
+```
+
+
+## Setup (Render.com)
+
+1. Create a free account at [Render.com](https://render.com).
+2. Click **New +** in the top right dashboard and select **Web Service**.
+3. Connect your GitHub account and select this repository.
+4. Use the following settings:
+   - **Name**: `tradingview-signal-relay` (or any custom name)
+   - **Language**: `Python`
+   - **Branch**: `main`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. Go to the **Environment** tab in your Render service settings and add the environment variables:
+   - `WEBHOOK_TOKEN`
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+6. Select the **Free** instance type and click **Deploy Web Service**.
+
+Alternatively, you can deploy using the included `render.yaml` Blueprint file via the Render Blueprint dashboard.
+
+Note: Since Render's free tier instance type uses ephemeral disks, any signals logged to the local CSV file (`data/signals.csv`) will be cleared whenever the service restarts or redeploys. Telegram forwards will continue to function normally.
+
+## Setup (Google Sheets)
+
+If you are hosting on a platform like Render with ephemeral disks, you can send your signal data directly to Google Sheets:
+
+1. Create a new Google Sheet.
+2. In the top menu, go to **Extensions** $\rightarrow$ **Apps Script**.
+3. Clear any existing code and paste the following script:
+
+```javascript
+function doPost(e) {
+  try {
+    var payload = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    var headers = [
+      "trade_id", "status", "received_at", "ticker", "timeframe", "side",
+      "trigger_close", "entry_price", "sl", "tp_main", "tp1", "tp2", "tp3",
+      "exit_price", "exit_reason", "exit_time", "telegram_sent", "telegram_error"
+    ];
+    
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(headers);
+    }
+    
+    var msgType = (payload.type || "").toUpperCase();
+    var side = (payload.side || "").toUpperCase();
+    var action = (payload.action || "").toLowerCase();
+    var comment = payload.comment || "";
+    var ticker = payload.ticker || payload.symbol || "";
+    
+    var isTrigger = msgType === "TRIGGER";
+    var isEntry = side === "LONG" || action === "buy";
+    var isExit = side === "EXIT" || action === "sell" || action === "close" || comment.indexOf("Sl") !== -1 || comment.indexOf("Tp") !== -1;
+    
+    if (isExit) {
+      var data = sheet.getDataRange().getValues();
+      var updated = false;
+      for (var i = data.length - 1; i >= 1; i--) {
+        var rowTicker = data[i][3];
+        var rowStatus = data[i][1];
+        if (rowTicker === ticker && rowStatus === "Open") {
+          sheet.getRange(i + 1, 2).setValue("Closed");
+          sheet.getRange(i + 1, 14).setValue(payload.price || payload.exit_price || "");
+          sheet.getRange(i + 1, 15).setValue(comment || payload.reason || "Exit signal");
+          sheet.getRange(i + 1, 16).setValue(new Date().toISOString());
+          updated = true;
+          break;
+        }
+      }
+      
+      if (!updated) {
+        var rowData = new Array(headers.length).fill("");
+        rowData[0] = payload.trade_id || "";
+        rowData[1] = "Orphaned Exit";
+        rowData[2] = new Date().toISOString();
+        rowData[3] = ticker;
+        rowData[13] = payload.price || payload.exit_price || "";
+        rowData[14] = comment || payload.reason || "Exit signal";
+        rowData[15] = new Date().toISOString();
+        rowData[16] = String(payload.telegram_sent || "");
+        rowData[17] = payload.telegram_error || "";
+        sheet.appendRow(rowData);
+      }
+    } else {
+      var status = isTrigger ? "Trigger" : (isEntry ? "Open" : "Unknown");
+      var rowData = new Array(headers.length).fill("");
+      rowData[0] = payload.trade_id || "";
+      rowData[1] = status;
+      rowData[2] = new Date().toISOString();
+      rowData[3] = ticker;
+      rowData[4] = payload.timeframe || "";
+      rowData[5] = payload.side || "";
+      rowData[6] = payload.trigger_close || "";
+      rowData[7] = payload.entry_price || payload.price || "";
+      rowData[8] = payload.sl || "";
+      rowData[9] = payload.tp_main || "";
+      rowData[10] = payload.tp1 || "";
+      rowData[11] = payload.tp2 || "";
+      rowData[12] = payload.tp3 || "";
+      rowData[16] = String(payload.telegram_sent || "");
+      rowData[17] = payload.telegram_error || "";
+      sheet.appendRow(rowData);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+```
+
+4. Click **Deploy** $\rightarrow$ **New deployment**.
+5. Set **Select type** to **Web app**.
+6. Set **Execute as** to **Me**.
+7. Set **Who has access** to **Anyone**. (This is safe as long as the URL remains secret).
+8. Click **Deploy** and authorize the script.
+9. Copy the generated **Web app URL**.
+10. Add `GOOGLE_SHEET_URL` to your env variables with this URL.
+
+
+
+
+## Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `WEBHOOK_TOKEN` | | Shared secret for auth (optional) |
+| `TELEGRAM_BOT_TOKEN` | | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | | Target chat ID |
+| `GOOGLE_SHEET_URL` | | Google Apps Script Web App URL to append logs |
+| `HOST` | `0.0.0.0` | Bind address |
+| `PORT` | `8000` | Bind port |
+| `WORKERS` | `1` | Uvicorn workers (keep 1 for CSV locking) |
+| `DATA_DIR` | `data` | Directory for CSV output |
+| `CSV_PATH` | `data/signals.csv` | CSV file path |
+
+## TradingView payload example
+
+```json
+{
+  "token": "your-shared-secret",
+  "ticker": "{{ticker}}",
+  "timeframe": "{{interval}}",
+  "side": "LONG",
+  "entry_price": "{{close}}",
+  "sl": "",
+  "tp_main": ""
+}
+```
