@@ -61,7 +61,7 @@ function doPost(e) {
           sheet.getRange(i + 1, 2).setValue("Closed");
           sheet.getRange(i + 1, 14).setValue(payload.price || payload.exit_price || "");
           sheet.getRange(i + 1, 15).setValue(comment || payload.reason || "Exit signal");
-          sheet.getRange(i + 1, 16).setValue(new Date().toISOString());
+          sheet.getRange(i + 1, 16).setValue(Utilities.formatDate(new Date(), "GMT-4", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"));
           updated = true;
           break;
         }
@@ -71,11 +71,11 @@ function doPost(e) {
         var rowData = new Array(headers.length).fill("");
         rowData[0] = payload.trade_id || "";
         rowData[1] = "Orphaned Exit";
-        rowData[2] = new Date().toISOString();
+        rowData[2] = Utilities.formatDate(new Date(), "GMT-4", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
         rowData[3] = ticker;
         rowData[13] = payload.price || payload.exit_price || "";
         rowData[14] = comment || payload.reason || "Exit signal";
-        rowData[15] = new Date().toISOString();
+        rowData[15] = Utilities.formatDate(new Date(), "GMT-4", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
         rowData[16] = String(payload.telegram_sent || "");
         rowData[17] = payload.telegram_error || "";
         sheet.appendRow(rowData);
@@ -85,7 +85,7 @@ function doPost(e) {
       var rowData = new Array(headers.length).fill("");
       rowData[0] = payload.trade_id || "";
       rowData[1] = status;
-      rowData[2] = new Date().toISOString();
+      rowData[2] = Utilities.formatDate(new Date(), "GMT-4", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
       rowData[3] = ticker;
       rowData[4] = payload.timeframe || "";
       rowData[5] = payload.side || "";

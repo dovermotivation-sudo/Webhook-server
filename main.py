@@ -2,7 +2,7 @@ import csv
 import json
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 from dotenv import load_dotenv
@@ -67,7 +67,7 @@ class SignalEnvelope(BaseModel):
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(timezone(timedelta(hours=-4))).isoformat()
 
 
 def ensure_csv_file() -> None:
