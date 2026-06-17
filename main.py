@@ -70,10 +70,17 @@ def utc_now() -> str:
     return datetime.now(timezone(timedelta(hours=-4))).isoformat()
 
 
-def ensure_csv_file() -> None:
+def get_csv_path(msg_type: str) -> Path:
+    safe_type = "".join(c for c in msg_type if c.isalnum() or c in ("-", "_")).strip()
+    if not safe_type:
+        return CSV_PATH
+    return DATA_DIR / f"signals_{safe_type.lower()}.csv"
+
+
+def ensure_csv_file(path: Path) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not CSV_PATH.exists():
-        with CSV_PATH.open("w", newline="", encoding="utf-8") as file_handle:
+    if not path.exists():
+        with path.open("w", newline="", encoding="utf-8") as file_handle:
             writer = csv.DictWriter(file_handle, fieldnames=CSV_COLUMNS)
             writer.writeheader()
 
@@ -124,18 +131,21 @@ def send_telegram_alert(payload: dict[str, Any]) -> tuple[bool, str]:
         return False, "Telegram not configured"
 
     url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/sendMessage"
-    response = requests.post(
-        url,
-        json={
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": telegram_message(payload),
-            "disable_web_page_preview": True,
-        },
-        timeout=10,
-    )
-    if response.ok:
-        return True, "sent"
-    return False, response.text
+    try:
+        response = requests.post(
+            url,
+            json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": telegram_message(payload),
+                "disable_web_page_preview": True,
+            },
+            timeout=10,
+        )
+        if response.ok:
+            return True, "sent"
+        return False, response.text
+    except Exception as exc:
+        return False, str(exc)
 
 
 def send_to_google_sheet(payload: dict[str, Any], telegram_sent: bool, telegram_error: str) -> None:
@@ -151,21 +161,23 @@ def send_to_google_sheet(payload: dict[str, Any], telegram_sent: bool, telegram_
 
 
 def append_signal_row(payload: dict[str, Any], telegram_sent: bool, telegram_error: str) -> None:
-    ensure_csv_file()
+    msg_type = (payload.get("type") or payload.get("signal_type") or "").strip()
+    csv_path = get_csv_path(msg_type)
+    ensure_csv_file(csv_path)
     
-    msg_type = payload.get("type", "").upper()
+    msg_type_upper = msg_type.upper()
     side = payload.get("side", "").upper()
     action = payload.get("action", "").lower()
     comment = payload.get("comment", "")
     ticker = payload.get("ticker", payload.get("symbol", ""))
     
-    is_trigger = msg_type == "TRIGGER"
+    is_trigger = msg_type_upper == "TRIGGER"
     is_entry = side == "LONG" or action == "buy"
     is_exit = side == "EXIT" or action in ["sell", "close"] or "Sl" in comment or "Tp" in comment
     
     with csv_lock:
         rows = []
-        with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
+        with csv_path.open("r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             if reader.fieldnames:
                 rows = list(reader)
@@ -219,7 +231,7 @@ def append_signal_row(payload: dict[str, Any], telegram_sent: bool, telegram_err
             })
             rows.append(new_row)
             
-        with CSV_PATH.open("w", newline="", encoding="utf-8") as f:
+        with csv_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
             writer.writeheader()
             writer.writerows(rows)

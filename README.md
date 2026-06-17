@@ -29,7 +29,26 @@ If you are hosting on a platform like Render with ephemeral disks, you can send 
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    
+    // Determine the sheet name from payload type or signal_type
+    var typeName = payload.type || payload.signal_type || "Signals";
+    typeName = String(typeName).trim();
+    if (!typeName) {
+      typeName = "Signals";
+    }
+    // Remove characters that are invalid in Google Sheet names: \ / ? * : [ ]
+    typeName = typeName.replace(/[\\\/\?\*\:\[\]]/g, "_");
+    // Strip leading/trailing single quotes
+    typeName = typeName.replace(/^'+|'+$/g, "");
+    if (typeName.length > 100) {
+      typeName = typeName.substring(0, 100);
+    }
+
+    var activeSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = activeSpreadsheet.getSheetByName(typeName);
+    if (!sheet) {
+      sheet = activeSpreadsheet.insertSheet(typeName);
+    }
     
     var headers = [
       "trade_id", "status", "received_at", "ticker", "timeframe", "side",
@@ -41,7 +60,7 @@ function doPost(e) {
       sheet.appendRow(headers);
     }
     
-    var msgType = (payload.type || "").toUpperCase();
+    var msgType = (payload.type || payload.signal_type || "").toUpperCase();
     var side = (payload.side || "").toUpperCase();
     var action = (payload.action || "").toLowerCase();
     var comment = payload.comment || "";
